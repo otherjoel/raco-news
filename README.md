@@ -8,7 +8,7 @@ newsletter.
 [2]: https://joeldueck.com/newsletter.html
 [3]: https://joeldueck.com/what-about/punct/
 
-[Sendy][3] is a greate tool for self-hosting lists and sending large (or small) volumes of email to
+[Sendy][3] is a great tool for self-hosting lists and sending large (or small) volumes of email to
 those lists via Amazon SES, but it is not as convenient as services like Tinyletter or Buttondown
 for sending simple, well-designed newsletters. It does not assist you at all with HTML formatting or
 provide useful defaults, does not check your links for you, and does not automatically generate
