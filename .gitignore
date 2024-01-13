@@ -1,0 +1,12 @@
+*~
+\#*
+.\#*
+.DS_Store
+.vscode/
+*.swp
+compiled/
+scratch/
+*.html
+*.js
+*.css
+options.ini
