@@ -1,13 +1,13 @@
 #lang at-exp racket/base
 
 (require "styles.rkt"
+         html-printer
          net/url
          punct/doc
          punct/render/html
          racket/class
          racket/format
          racket/match
-         (only-in xml xexpr->string))
          racket/string)
 
 (provide doc->html-email)
@@ -112,7 +112,9 @@
 @css-stylesheet
 </head>
 <body xml:lang="@lang" style="@attr['body 'style]">
-@(xexpr->string `(div ,(attr 'div.content) ,@(cdr (doc->email-body doc))))
+@(xexpr->html5
+  #:add-breaks? #t
+  `(div ,(attr 'div.content) ,@(cdr (doc->email-body doc base-url))))
 </body>
 </html>
 })
