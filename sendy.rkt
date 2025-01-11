@@ -11,7 +11,8 @@
 
 (provide check-api
          create-campaign
-         check-link)
+         check-link
+         doc->text+html)
 
 (define (api v endpoint)
   (format "~a/~a.php" endpoint v))
@@ -40,10 +41,13 @@
      `(error ,c ,m)]
     [(var v) `(error -inf.0 ,v)]))
 
+(define (doc->text+html doc base-url)
+  (values (doc->plaintext doc 65)
+          (doc->html-email doc base-url)))
+
 (define (create-campaign doc opt-proc)
   (define title (hash-ref (document-metas doc) 'title))
-  (define plaintext-version (doc->plaintext doc 65))
-  (define html-version (doc->html-email doc (opt-proc 'base-url)))
+  (define-values (plaintext-version html-version) (doc->text+html doc (opt-proc 'base-url)))
   
   (define result
     (post (api 'campaigns/create (opt-proc 'sendy-endpoint))

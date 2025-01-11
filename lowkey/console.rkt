@@ -9,6 +9,7 @@
 (define color:red #"\e[31m")
 (define color:green #"\e[32m")
 (define color:yellow #"\e[33m")
+(define color:cyan #"\e[36m")
 (define color:gray #"\e[90m")
 
 (define (printc good? message [code #f])
@@ -16,6 +17,7 @@
     (match (list good? code)
       [(list #t #f) (values " ✔ " color:green color:reset)]
       [(list #f #f) (values " ✘ " color:red color:yellow)]
+      [(list 'info #f) (values " ☞ " color:cyan color:cyan)]
       [(list #t c) (values (format "~a" code) color:green color:reset)]
       [(list #f c) (values (format "~a" code) color:red color:yellow)]))
   (parameterize ([current-output-port (current-error-port)])

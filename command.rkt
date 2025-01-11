@@ -8,14 +8,14 @@
          racket/cmdline
          racket/list
          racket/match
-         racket/runtime-path
+         racket/path
          txexpr)
 
 (provide (all-defined-out))
 
-(define-runtime-path options.ini "options.ini")
-(define opt (make-options-ref options.ini))
+(define options-ini (make-parameter (build-path (current-directory) "news.ini")))
 (define check-only (make-parameter #f))
+(define testing (make-parameter #f))
 
 (module+ raco
   (define filename
@@ -23,16 +23,33 @@
                   #:once-each
                   [("-c" "--check-only") "Only check links, do not upload campaign"
                                          (check-only #t)]
+                  [("-i" "--ini-file") ini "Specify location of settings .ini file" (options-ini ini)]
+                  [("-t" "--test") "Test only: don't create campaign" (testing #t)]
                   #:args (filename)
                   filename))
   (raco-news-command filename))
   
 (define (raco-news-command filename)
+  (define opt (make-options-ref (options-ini)))
+  (printc #t (format "Loaded ~a: ~a • ~a"
+                     (file-name-from-path (options-ini))
+                     (opt 'base-url)
+                     (opt 'from-email)))
   (define doc (display/check-file filename))
   (and doc (for-each display/link-check (list-link-urls doc)))
   (unless (check-only)
     (and (display/api-check opt)
-         (display/campaign-create doc opt))))
+         (cond
+           [(not (testing))
+            (display/campaign-create doc opt)
+            (printc 'info "Emails are not sent until you log in to Sendy and click ‘Send’!")]
+           [else
+            (printc 'info "Test only: campaign not created")
+            (define-values (plaintext-version html-version) (doc->text+html doc (opt 'base-url)))
+            (displayln plaintext-version)
+            (displayln "════════════════════════════════════════════════════════════")
+            (displayln html-version)
+            ]))))
 
 (define (display/check-file filename)
   (define maybe-doc
@@ -70,9 +87,12 @@
 
 (define (list-link-urls doc)
   (define link-xprs (findf*-txexpr `(root ,@(document-body doc)) link?))
-  (remove-duplicates
-   (for/list ([xpr (in-list link-xprs)])
-     (attr-ref xpr 'dest))))
+  (or 
+   (and link-xprs
+        (remove-duplicates
+         (for/list ([xpr (in-list link-xprs)])
+           (attr-ref xpr 'dest))))
+  '()))
 
 (define (display/link-check url)
   (match (check-link url)
