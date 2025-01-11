@@ -25,8 +25,9 @@
   (lambda (tag [single-attr #f])
     (define attrs (hash-ref tag-map tag '()))
     (if single-attr
-        (for/first ([a (in-list attrs)])
-          (and (eq? (car a) single-attr) (cadr a)))
+        (for/first ([a (in-list attrs)]
+                    #:when (eq? single-attr (car a)))
+          (cadr a))
         attrs)))
 
 ;; Shorthand
