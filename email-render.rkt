@@ -1,14 +1,44 @@
 #lang at-exp racket/base
 
 (require "styles.rkt"
+         net/url
          punct/doc
          punct/render/html
          racket/class
          racket/format
          racket/match
          (only-in xml xexpr->string))
+         racket/string)
 
-(provide (all-defined-out))
+(provide doc->html-email)
+
+;; ("posts/first.html" "https://example.com") → "https://example.com/post/first.html"
+;; ("https://msn.com/about" "https://example.com") → "https://example.com/about" (no change)
+(define (unrel-link dest base)
+  (cond
+    [(not (url-scheme (string->url dest)))
+     (url->string
+      (combine-url/relative (string->url base) dest))]
+    [else dest]))
+
+;; "image-160.jpg 160w, image-320.jpg 320w"
+;; "https://example.com"
+;; → "https://example.com/image-160.jpg 160w, https://example.com/image-320.jpg 320w"
+(define (unrel-srcset srcset-str base-url)
+  (define srcs (string-split srcset-str #rx",\\s*"))
+  (string-join
+   (for/list ([src (in-list srcs)])
+     (define parsed-src (string-split src))
+     (string-join (cons (unrel-link (car parsed-src) base-url) (cdr parsed-src))))
+   ", "))
+
+;; 
+(define (unrel-src/hrefs attrs base-url)
+  (for/list ([attr (in-list attrs)])
+    (match attr
+      [(list (or 'href 'src) dest) (list (car attr) (unrel-link dest base-url))]
+      [(list 'srcset sources) (list 'srcset (unrel-srcset sources base-url))]
+      [_ attr])))
 
 ;; A custom HTML renderer for Punct documents destined for use as email.
 ;; Chief difference from the basic HTML renderer is that this one blasts
@@ -17,6 +47,8 @@
 ;;
 (define email-html-render%
   (class punct-html-render%
+    (init-field base-url)
+    
     (define/override (render-paragraph content)
       `(p ,(attr 'p) ,@content))
 
@@ -44,25 +76,26 @@
 
     (define/override (render-image src title desc elems)
       `(div ,(attr 'div.figure)
-            (img [[src ,src]
+            (img [[src ,(unrel-link src base-url)]
                   ,@(if desc `((alt ,desc)) '())
                   ,@(if title `((title ,title)) '())
                   ,@(attr 'img)])
             ,@(if desc (list `(div ,(attr 'div.figcaption) ,desc)) '())))
 
     (define/override (render-link dest title elems)
-      `(a [[href ,dest] ,@(if title `((title ,title)) '()) ,@(attr 'a)] ,@elems))
+      `(a [[href ,(unrel-link dest base-url)] ,@(if title `((title ,title)) '()) ,@(attr 'a)] ,@elems))
     
     (super-new)))
 
-(define (render-other tag attributes elems)
-  (match `(,tag ,attributes)
-    [(list* 'meta _) `(p ,(attr 'p.meta) ,@elems)]
-    [(list* 'webversion _) `(div ,(attr 'div.web) (webversion ,@elems))] ; Sendy converts <webversion>
-    [_ (default-html-tag tag attributes elems)]))
+(define (make-render-other base-url)
+  (lambda (tag attributes elems)
+    (match `(,tag ,attributes)
+      [(list* 'meta _) `(p ,(attr 'p.meta) ,@elems)]
+      [(list* 'webversion _) `(div ,(attr 'div.web) (webversion ,@elems))] ; Sendy converts <webversion>
+      [_ (default-html-tag tag (unrel-src/hrefs attributes base-url) elems)])))
 
-(define (doc->email-body doc)
-  (send (new email-html-render% [doc doc] [render-fallback render-other]) render-document))
+(define (doc->email-body doc base-url)
+  (send (new email-html-render% [doc doc] [render-fallback (make-render-other base-url)] [base-url base-url]) render-document))
 
 (define (doc->html-email doc base-url [lang "en"] [generator "exploded stars"])
   @~a{<!DOCTYPE html>
